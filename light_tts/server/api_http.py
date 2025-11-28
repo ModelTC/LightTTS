@@ -210,7 +210,7 @@ async def inference_zero_shot_bistream(websocket: WebSocket):
             if input_data.get("finish", False):
                 cur_req_dict["finish"] = True
                 cur_req_dict["append"] = True
-                g_objs.httpserver_manager.append_bistream(cur_req_dict, request_id)
+                await g_objs.httpserver_manager.append_bistream(cur_req_dict, request_id)
                 break
             elif first_text:
                 generator = g_objs.httpserver_manager.generate(
@@ -219,7 +219,7 @@ async def inference_zero_shot_bistream(websocket: WebSocket):
                 process_task = asyncio.create_task(send_wav(websocket, generator))
                 first_text = False
             else:
-                g_objs.httpserver_manager.append_bistream(cur_req_dict, request_id)
+                await g_objs.httpserver_manager.append_bistream(cur_req_dict, request_id)
         await process_task
     except WebSocketDisconnect:
         # 处理客户端断开连接

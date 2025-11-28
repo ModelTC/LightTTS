@@ -72,7 +72,11 @@ class HttpServerManager:
             self.shared_speech_manager.set_index_data(index, prompt_wav.shape, prompt_wav)
         return index, have_alloc
     
-    def append_bistream(self, request_dict, request_id):
+    async def append_bistream(self, request_dict, request_id):
+        # 等待 request_id 出现在 dict 中（generate 可能还没执行完初始化）
+        while request_id not in self.req_id_to_out_inf:
+            await asyncio.sleep(0.01)
+        
         req_status = self.req_id_to_out_inf[request_id]
         req = req_status.group_req_objs.shm_req_objs[0]
         finish = request_dict.get("finish", False)
@@ -81,7 +85,7 @@ class HttpServerManager:
         else:
             text = request_dict.get("text", "")
             text_ids = self._encode(text)
-            req.append_bistream(text_ids, self.max_token_text_ratio)
+            req.append_bistream(text_ids, self.min_token_text_ratio, self.max_token_text_ratio)
 
 
     async def transfer_to_next_module(
@@ -177,7 +181,7 @@ class HttpServerManager:
                 await self._check_and_repair_length(prompt_ids, semantic_len, sampling_params)
             else:
                 prompt_ids = prompt_text_ids + text_ids # text_cache
-                sampling_params.min_new_tokens
+                sampling_params.min_new_tokens = len(text_ids) * self.min_token_text_ratio
                 sampling_params.max_new_tokens = len(text_ids) * self.max_token_text_ratio
 
             req_index = await self.shm_req_manager.async_alloc_req_index()
