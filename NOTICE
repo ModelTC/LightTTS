@@ -1,0 +1,22 @@
+Light TTS
+Copyright (c) 2024 Light TTS Contributors
+
+This project contains code from the following third-party projects:
+
+================================================================================
+
+CosyVoice (cosyvoice/)
+https://github.com/FunAudioLLM/CosyVoice
+Copyright (c) Alibaba, Inc. and its affiliates.
+Licensed under the Apache License, Version 2.0
+Original commit: 9f27b42
+
+   The cosyvoice/ directory contains a modified copy of the CosyVoice project.
+   We have integrated and adapted this code for use in Light TTS.
+   The original LICENSE file is preserved in cosyvoice/LICENSE.
+   
+   All modifications to the original CosyVoice code are also licensed under
+   the Apache License, Version 2.0.
+
+================================================================================
+

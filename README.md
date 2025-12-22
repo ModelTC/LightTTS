@@ -149,4 +149,9 @@ When your service is started, you can call the service through the http API. We 
 - bi-streaming. We use the websocket interface implementation, and we can find usage examples in `test/test_bistream.py`.
 
 ## License
+
 This repository is released under the [Apache-2.0](LICENSE) license.
+
+### Third-Party Code Attribution
+
+This project includes code from [CosyVoice](https://github.com/FunAudioLLM/CosyVoice) (Copyright Alibaba, Inc. and its affiliates), which is also licensed under Apache-2.0. The CosyVoice code is located in the `cosyvoice/` directory and has been integrated and modified as part of Light TTS. See [NOTICE](NOTICE) file for complete attribution details.
