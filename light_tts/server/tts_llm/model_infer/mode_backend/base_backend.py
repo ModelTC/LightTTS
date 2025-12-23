@@ -6,8 +6,10 @@ import torch
 import socket
 from datetime import timedelta
 from typing import Dict, List, Tuple
+from light_tts.models.cosyvoice3.model import CosyVoice3TpPartModel
 from light_tts.utils.infer_utils import set_random_seed
 from light_tts.utils.infer_utils import calculate_time, mark_start, mark_end
+from light_tts.utils.load_utils import CosyVoiceVersion
 from light_tts.utils.log_utils import init_logger
 from light_tts.server.tts_llm.token_load import TokenLoad
 from light_tts.utils.dist_utils import init_distributed_env
@@ -22,6 +24,8 @@ from light_tts.models.cosyvoice2.model import CosyVoice2TpPartModel
 import torch.distributed as dist
 
 logger = init_logger(__name__)
+
+
 class ModeBackend:
     def __init__(self) -> None:
         self.shm_req_manager = ShmReqManager()
@@ -32,12 +36,6 @@ class ModeBackend:
         self.is_multimodal = False
         self.tp_rank = kvargs["rank_id"]
         self.world_size = kvargs["world_size"]
-        self.load_way = kvargs["load_way"]
-        self.style_name = kvargs["style_name"]
-        self.mode = kvargs["mode"]
-        self.speech_token_size = kvargs["speech_token_size"]
-        self.fill_token_id = self.speech_token_size + 2
-        self.eos_id = self.speech_token_size
         self.mix_ratio = kvargs.get("mix_ratio", [5, 15])
         # dp_size_in_node 计算兼容多机纯tp的运行模式，这时候 1 // 2 == 0, 需要兼容
         self.dp_size_in_node = 1
@@ -46,8 +44,8 @@ class ModeBackend:
         self.logger = init_logger(__name__)
 
         self.weight_dir = kvargs["weight_dir"]
-        max_total_token_num = kvargs["max_total_token_num"]
-        
+        version = kvargs["version"]
+
         torch.cuda.set_device(0)
         init_distributed_env(kvargs)
         self.init_rank_infos()
@@ -59,19 +57,19 @@ class ModeBackend:
 
         # custom_comm_ops.set_custom_reduce()
         # custom_comm_ops.set_custom_gather()
-        
+
         model_kvargs = {
-            "weight_dir": os.path.join(self.weight_dir, 'CosyVoice-BlankEN'),
-            "max_total_token_num": max_total_token_num,
-            "load_way": self.load_way,
-            "pt_dir": os.path.join(self.weight_dir, 'llm.pt'),
-            "mode": self.mode,
+            "weight_dir": os.path.join(self.weight_dir, "CosyVoice-BlankEN"),
+            "max_total_token_num": kvargs["max_total_token_num"],
+            "load_way": kvargs["load_way"],
+            "pt_dir": os.path.join(self.weight_dir, "llm.pt"),
+            "mode": kvargs["mode"],
             "max_req_num": kvargs.get("max_req_num", 1000),
             "max_seq_length": kvargs.get("max_seq_length", 1024 * 5),
-            "use_dynamic_prompt_cache": True, # for bistream mode
+            "use_dynamic_prompt_cache": True,  # for bistream mode
             "data_type": kvargs.get("data_type", "float16"),
-            "style_name": self.style_name,
-            "speech_token_size": self.speech_token_size,
+            "style_name": kvargs["style_name"],
+            "speech_token_size": kvargs.get("speech_token_size"),
             "graph_max_batch_size": kvargs.get("graph_max_batch_size", 16),
             "graph_max_len_in_batch": kvargs.get("graph_max_len_in_batch", 8196),
             "disable_cudagraph": kvargs.get("disable_cudagraph", False),
@@ -79,13 +77,16 @@ class ModeBackend:
             "quant_type": kvargs.get("quant_type", None),
             "quant_cfg": kvargs.get("quant_cfg", None),
         }
-        
+
         try:
-            self.model = CosyVoice2TpPartModel(model_kvargs)
+            if version == CosyVoiceVersion.VERSION_2:
+                self.model = CosyVoice2TpPartModel(model_kvargs)
+            elif version == CosyVoiceVersion.VERSION_3:
+                self.model = CosyVoice3TpPartModel(model_kvargs)
         except Exception as e:
             self.logger.exception(str(e))
             raise e
-        
+
         torch.cuda.empty_cache()
         set_random_seed(2147483647)
 
@@ -103,7 +104,7 @@ class ModeBackend:
 
     def get_max_total_token_num(self):
         return self.model.mem_manager.size
-    
+
     def prefill(self, reqs: List[Tuple]):
         """This method can be overridden in subclasses."""
         raise NotImplementedError()
@@ -119,13 +120,12 @@ class ModeBackend:
 
         g_infer_context.pause_reqs(req_ids)
         return
-    
+
     # 一些可以复用的单元功能函数
     def _init_reqs(self, reqs: List[Tuple], init_req_obj=True):
         g_infer_context.add_reqs(reqs, init_req_obj=init_req_obj)
         req_ids = [e[0] for e in reqs]
         return req_ids
-    
 
     def init_rank_infos(self):
         self.node_world_size = get_node_world_size()

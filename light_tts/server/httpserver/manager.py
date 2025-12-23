@@ -6,6 +6,7 @@ import asyncio
 import uvloop
 import time
 import sys
+
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from light_tts.utils.config_utils import get_config_json
 from light_tts.utils.log_utils import init_logger
@@ -23,12 +24,7 @@ logger = init_logger(__name__)
 
 
 class HttpServerManager:
-    def __init__(
-        self,
-        args,
-        httpserver_port,
-        tts1_encode_ports
-    ):
+    def __init__(self, args, httpserver_port, tts1_encode_ports):
         self.args = args
         self.total_config = get_config_json(args.model_dir)
 
@@ -46,20 +42,20 @@ class HttpServerManager:
         self.recv_from_tts_decode.bind(f"{args.zmq_mode}127.0.0.1:{httpserver_port}")
 
         self.req_id_to_out_inf: Dict[int, ReqStatus] = {}
-         
+
         self.shared_speech_manager = SharedSpeechManager(f"{args.port}_cosyvoice", args.cache_capacity)
         self.shm_req_manager = ShmReqManager()
 
         configs = load_yaml(args.model_dir)
         self.model_config = configs["llm"].llm.model.model.config
         self.vocab_size = self.model_config.vocab_size
-        self.sos = self.vocab_size
-        self.task_id = self.vocab_size + 1
+        self.sos = self.vocab_size + configs["sos"]
+        self.task_id = self.vocab_size + configs["task_id"]
 
         self.max_req_total_len = args.max_req_total_len
-        get_tokenizer = configs['get_tokenizer']
+        get_tokenizer = configs["get_tokenizer"]
         self.tokenizer = get_tokenizer()
-        self.allowed_special = configs['allowed_special']
+        self.allowed_special = configs["allowed_special"]
 
         # from github source code
         self.min_token_text_ratio = 2
@@ -71,12 +67,12 @@ class HttpServerManager:
         if not have_alloc:
             self.shared_speech_manager.set_index_data(index, prompt_wav.shape, prompt_wav)
         return index, have_alloc
-    
+
     async def append_bistream(self, request_dict, request_id):
         # 等待 request_id 出现在 dict 中（generate 可能还没执行完初始化）
         while request_id not in self.req_id_to_out_inf:
             await asyncio.sleep(0.01)
-        
+
         req_status = self.req_id_to_out_inf[request_id]
         req = req_status.group_req_objs.shm_req_objs[0]
         finish = request_dict.get("finish", False)
@@ -87,7 +83,6 @@ class HttpServerManager:
             text_ids = self._encode(text)
             with self.shm_req_manager.get_req_lock_by_index(req.index_in_shm_mem):
                 req.append_bistream(text_ids, self.min_token_text_ratio, self.max_token_text_ratio)
-
 
     async def transfer_to_next_module(
         self,
@@ -112,15 +107,17 @@ class HttpServerManager:
                 await asyncio.wait_for(event.wait(), timeout=1)
             except asyncio.TimeoutError:
                 pass
-        
+
             if request is not None and await request.is_disconnected():
                 # Abort the request if the client disconnects.
                 await self.abort(request_id)
                 raise Exception(f"req_id {request_id} disconnected")
-            
+
             async with req_status.lock:
                 event.clear()
-                logger.info(f"req_id {request_id} get out data, len(out_data_info_list) {len(req_status.out_data_info_list)}")
+                logger.info(
+                    f"req_id {request_id} get out data, len(out_data_info_list) {len(req_status.out_data_info_list)}"
+                )
                 if len(req_status.out_data_info_list) == 0:
                     continue
 
@@ -130,7 +127,6 @@ class HttpServerManager:
                     if finialize:
                         return
                 req_status.out_data_info_list.clear()
-                
 
     async def _log_req_header(self, request_headers, group_request_id: int):
 
@@ -144,24 +140,22 @@ class HttpServerManager:
             f"lightllm_req_id:{group_request_id} "
         )
         return
-    
-    def _encode(self, text: str): 
+
+    def _encode(self, text: str):
         return self.tokenizer.encode(
             text,
             allowed_special=self.allowed_special,
         )
-    
-    async def _async_encode(self, text: str): 
+
+    async def _async_encode(self, text: str):
         return self._encode(text)
-    
+
     async def _check_and_repair_length(self, prompt_ids: List[int], semantic_len: int, sampling_params: SamplingParams):
         prompt_tokens = len(prompt_ids) + semantic_len
         if prompt_tokens + sampling_params.max_new_tokens > self.max_req_total_len:
             sampling_params.max_new_tokens = self.max_req_total_len - prompt_tokens
         if sampling_params.max_new_tokens < sampling_params.min_new_tokens:
-            raise ValueError(
-                f"The input is too long and the resulting audio will be incomplete"
-            )
+            raise ValueError("The input is too long and the resulting audio will be incomplete")
 
     async def generate(self, request_dict, request_id, sampling_params, request=None):
         # 记录请求到达的相关信息
@@ -181,7 +175,7 @@ class HttpServerManager:
                 sampling_params.max_new_tokens = len(text_ids) * self.max_token_text_ratio
                 await self._check_and_repair_length(prompt_ids, semantic_len, sampling_params)
             else:
-                prompt_ids = prompt_text_ids + text_ids # text_cache
+                prompt_ids = prompt_text_ids + text_ids  # text_cache
                 sampling_params.min_new_tokens = len(text_ids) * self.min_token_text_ratio
                 sampling_params.max_new_tokens = len(text_ids) * self.max_token_text_ratio
 
@@ -189,7 +183,7 @@ class HttpServerManager:
             while req_index is None:
                 await asyncio.sleep(0.1)
                 req_index = await self.shm_req_manager.async_alloc_req_index()
-            
+
             style = request_dict["tts_model_name"]
             req_obj = await self.shm_req_manager.async_get_req_obj_by_index(req_index)
             req_objs = []
@@ -208,13 +202,13 @@ class HttpServerManager:
 
             async for tts_speech, finish_status, finialize in results_generator:
                 yield {"tts_speech": tts_speech}
-            
+
         except Exception as e:
             logger.error(f"request_id: {request_id} has exception {str(e)}")
             await self.abort(request_id)
             raise e
         return
-        
+
     async def abort(self, request_id):
         if request_id in self.req_id_to_out_inf:
             req_status = self.req_id_to_out_inf[request_id]
@@ -242,14 +236,14 @@ class HttpServerManager:
                 req_status: ReqStatus = self.req_id_to_out_inf.get(group_req_id_, None)
                 if req_status is not None and req_status.can_release():
                     release_req_status.append(req_status)
-            
+
             for req_status in release_req_status:
                 logger.info(f"release req_id {req_status.group_req_objs.shm_req_objs[0].request_id}")
                 self.req_id_to_out_inf.pop(req_status.group_req_objs.group_req_id, None)
                 for req in req_status.group_req_objs.shm_req_objs:
                     await self.shm_req_manager.async_put_back_req_obj(req)
                     await self.shm_req_manager.async_release_req_index(req.index_in_shm_mem)
-                    
+
             if time.time() - pre_time_mark > 20:
                 pre_time_mark = time.time()
                 for req_status in self.req_id_to_out_inf.values():
@@ -273,13 +267,13 @@ class HttpServerManager:
                 req_status = self.req_id_to_out_inf.get(group_req_id_, None)
                 if req_status is None:
                     continue
-                
+
                 for req in req_status.group_req_objs.shm_req_objs:
                     if req.stream:
                         if not req.out_tokens_queue.is_empty():
                             tts_speech, token_offset, finalize = req.out_tokens_queue.peek()
                             tts_speech = tts_speech.copy()
-                        
+
                             if finalize:
                                 finish_status = FinishStatus(req.finish_status.status)
                             else:
@@ -296,11 +290,12 @@ class HttpServerManager:
                         finish_status = FinishStatus(req.finish_status.status)
                         async with req_status.lock:
                             req_status.out_data_info_list.append((tts_speech.copy(), finish_status, finalize))
-                            logger.info(f"req_id {req.request_id} shm_index {req.index_in_shm_mem} gen finished, append to out data")
+                            logger.info(f"req_id {req.request_id} shm_index {req.index_in_shm_mem} gen finished")
                             req_status.event.set()
 
             self.recycle_event.set()
         return
+
 
 class ReqStatus:
     def __init__(self, req_id, req_objs: List[Req], start_time) -> None:

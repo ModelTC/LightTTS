@@ -18,6 +18,7 @@ from light_tts.server.core.objs import RpcShmParams, RpcShmResults, ShmSyncStatu
 
 logger = init_logger(__name__)
 
+
 class ModelRpcServer:
     def __init__(
         self,
@@ -47,48 +48,14 @@ class ModelRpcServer:
         return
 
     def init_model(self, kvargs):
-        self.args = kvargs.get("args", None)
-        self.is_multimodal = False
-        self.tp_rank = kvargs["rank_id"]
-        self.world_size = kvargs["world_size"]
-        self.load_way = kvargs["load_way"]
-        self.style_name = kvargs["style_name"]
-        self.mode = kvargs["mode"]
-        self.speech_token_size = kvargs["speech_token_size"]
-        self.mix_ratio = kvargs.get("mix_ratio", [5, 15])
-
-        self.cache = {}
-        self.logger = init_logger(__name__)
-
-        weight_dir = kvargs["weight_dir"]
-        max_total_token_num = kvargs["max_total_token_num"]
-        
-        model_kvargs = {
-            "weight_dir": os.path.join(weight_dir, 'CosyVoice-BlankEN'),
-            "max_total_token_num": max_total_token_num,
-            "load_way": self.load_way,
-            "pt_dir": os.path.join(weight_dir, 'llm.pt'),
-            "mode": self.mode,
-            "max_req_num": kvargs.get("max_req_num", 1000),
-            "max_seq_length": kvargs.get("max_seq_length", 1024 * 5),
-            "use_dynamic_prompt_cache": True, # for bistream mode
-            "data_type": kvargs.get("data_type", "float16"),
-            "style_name": self.style_name,
-            "speech_token_size": self.speech_token_size,
-            "graph_max_batch_size": kvargs.get("graph_max_batch_size", 16),
-            "graph_max_len_in_batch": kvargs.get("graph_max_len_in_batch", 8196),
-            "disable_cudagraph": kvargs.get("disable_cudagraph", False),
-            "batch_max_tokens": kvargs.get("batch_max_tokens", None),
-            "quant_type": kvargs.get("quant_type", None),
-            "quant_cfg": kvargs.get("quant_cfg", None),
-        }
-
+        kvargs["rank_id"] = self.rank
+        # 初始化 backend，所有参数直接通过 kvargs 传递
         self.backend = ContinuesBatchBackend()
         logger.info(f"use {self.backend.__class__.__name__}")
-        self.backend.init_model(kvargs)        
+        self.backend.init_model(kvargs)
 
         return
-    
+
     def prefill(self, reqs):
         try:
             return self.backend.prefill(reqs)
@@ -121,7 +88,7 @@ class ModelRpcClient:
             self.model_infer_server: ModelRpcServer = model_infer_servers[0]
         else:
             self.model_infer_server: ModelRpcServer = None
-        
+
         self.world_size = world_size
         self.use_rpc = self.world_size != 1
         self.rpc_shm_params = RpcShmParams()
@@ -180,7 +147,7 @@ class ModelRpcClient:
         else:
             self.model_infer_server.pause_reqs(req_ids)
             return
-        
+
     async def get_max_total_token_num(self):
         if self.use_rpc:
             self.rpc_shm_params.write_func_params("get_max_total_token_num", ())
@@ -193,6 +160,7 @@ class ModelRpcClient:
             return ret
         else:
             return self.model_infer_server.get_max_total_token_num()
+
 
 async def start_model_process(
     args,

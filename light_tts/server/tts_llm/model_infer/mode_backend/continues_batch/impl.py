@@ -22,7 +22,8 @@ class ContinuesBatchBackend(ModeBackend):
 
         mask = ~kwargs["b_next_fill"]
         next_token_ids = sample(
-            logits[mask], kwargs["output_token_ids"][mask], 
+            logits[mask],
+            kwargs["output_token_ids"][mask],
             kwargs["ignore_eos"][mask],
             self.model.eos_token,
             # kwargs["bistream"][mask],
@@ -32,14 +33,15 @@ class ContinuesBatchBackend(ModeBackend):
 
         self.post_handle(run_reqs, next_token_ids, mask)
         return
-    
+
     def decode(self):
         kwargs, run_reqs = prepare_decode_inputs(g_infer_context.infer_req_ids)
         logits = self.model.forward(**kwargs)
 
         mask = ~kwargs["b_next_fill"]
         next_token_ids = sample(
-            logits[mask], kwargs["output_token_ids"][mask], 
+            logits[mask],
+            kwargs["output_token_ids"][mask],
             kwargs["ignore_eos"][mask],
             self.model.eos_token,
             # kwargs["bistream"][mask],
@@ -49,7 +51,7 @@ class ContinuesBatchBackend(ModeBackend):
 
         self.post_handle(run_reqs, next_token_ids, mask)
         return
-    
+
     def post_handle(self, run_reqs: List[InferReq], next_token_ids, mask):
         finished_req_ids = []
         append_prefill_req_ids = []
@@ -65,12 +67,12 @@ class ContinuesBatchBackend(ModeBackend):
                 next_token_id = next_token_ids[index]
                 index += 1
             else:
-                next_token_id = self.fill_token_id
+                next_token_id = self.model.fill_token
 
-            if next_token_id == self.fill_token_id:
+            if next_token_id == self.model.fill_token:
                 req_obj.next_fill_index = len(req_obj.output_token_ids) + self.mix_ratio[1] + 1
             else:
-                req_obj.set_next_gen_token_id(next_token_id, next_token_id + text_vocab) # 生成的token id 需要偏移
+                req_obj.set_next_gen_token_id(next_token_id, next_token_id + text_vocab)  # 生成的token id 需要偏移
                 req_obj.cur_output_len += 1
 
             req_obj.output_token_ids.append(next_token_id)
@@ -78,7 +80,9 @@ class ContinuesBatchBackend(ModeBackend):
             req_obj.shm_req.shm_cur_kv_len = req_obj.cur_kv_len
             req_obj.shm_req.shm_cur_output_len = req_obj.cur_output_len
 
-            req_obj.update_finish_status(self.model.eos_token, self.model.stop_token_ids, fill_token_id=self.fill_token_id)
+            req_obj.update_finish_status(
+                self.model.eos_token, self.model.stop_token_ids, fill_token_id=self.model.fill_token
+            )
 
             if req_obj.finish_status.is_finished() or req_obj.shm_req.router_aborted:
                 finished_req_ids.append(req_obj.shm_req.request_id)

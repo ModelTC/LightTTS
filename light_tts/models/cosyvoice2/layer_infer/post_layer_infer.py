@@ -76,16 +76,28 @@ class CosyVoice2PostLayerInfer(LlamaPostLayerInfer):
         logic_batch = self.alloc_tensor(
             (layer_weight.llm_decoder_weight_.shape[0], last_input.shape[1]), dtype=last_input.dtype
         )
-        torch.addmm(
-            layer_weight.llm_decoder_bias_, layer_weight.llm_decoder_weight_, last_input, beta=1.0, alpha=1.0, out=logic_batch
-        )
+        if hasattr(layer_weight, "llm_decoder_bias_"):
+            torch.addmm(
+                layer_weight.llm_decoder_bias_,
+                layer_weight.llm_decoder_weight_,
+                last_input,
+                beta=1.0,
+                alpha=1.0,
+                out=logic_batch,
+            )
+        else:
+            torch.mm(layer_weight.llm_decoder_weight_, last_input, out=logic_batch)
 
         last_input = None
         if self.tp_world_size_ == 1:
             gather_data = logic_batch
         else:
-            gather_data = self.alloc_tensor((layer_weight.llm_decoder_weight_.shape[0], token_num), dtype=input_embdings_dtype)
-            split_indexes = np.linspace(0, layer_weight.llm_decoder_weight_.shape[0], self.tp_world_size_ + 1, dtype=np.int64)
+            gather_data = self.alloc_tensor(
+                (layer_weight.llm_decoder_weight_.shape[0], token_num), dtype=input_embdings_dtype
+            )
+            split_indexes = np.linspace(
+                0, layer_weight.llm_decoder_weight_.shape[0], self.tp_world_size_ + 1, dtype=np.int64
+            )
             dist.all_gather(
                 [gather_data[split_indexes[i] : split_indexes[i + 1], :] for i in range(self.tp_world_size_)],
                 logic_batch,
@@ -93,7 +105,9 @@ class CosyVoice2PostLayerInfer(LlamaPostLayerInfer):
                 async_op=False,
             )
         logic_batch = None
-        ans_logics = self.alloc_tensor((token_num, layer_weight.llm_decoder_weight_.shape[0]), dtype=torch.float32, is_graph_out=True)
+        ans_logics = self.alloc_tensor(
+            (token_num, layer_weight.llm_decoder_weight_.shape[0]), dtype=torch.float32, is_graph_out=True
+        )
         ans_logics[:, :] = gather_data.permute(1, 0)
         gather_data = None
         torch.log_softmax(ans_logics, dim=-1, out=ans_logics)

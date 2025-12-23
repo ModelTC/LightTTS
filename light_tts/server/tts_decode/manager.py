@@ -11,11 +11,11 @@ import asyncio
 
 from light_tts.utils.load_utils import load_yaml
 from light_tts.utils.process_check import start_parent_check_thread
+
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 import zmq
 import zmq.asyncio
 from typing import Dict, Union
-import traceback
 from .model_infer.model_rpc import start_model_process, TTS2DecodeModelRpcClient
 
 from light_tts.utils.infer_utils import calculate_time, mark_start, mark_end
@@ -25,16 +25,9 @@ from typing import List
 
 logger = init_logger(__name__)
 
+
 class TTSDecodeManager:
-    def __init__(
-        self,
-        args,
-        tts_decode_port,
-        httpserver_port,
-        style_name,
-        decode_parall_lock,
-        decode_proc_index
-    ):
+    def __init__(self, args, tts_decode_port, httpserver_port, style_name, decode_parall_lock, decode_proc_index):
         self.args = args
         context = zmq.asyncio.Context(2)
         self.recv_from_tts2_gpt = context.socket(zmq.PULL)
@@ -42,7 +35,7 @@ class TTSDecodeManager:
 
         self.send_to_httpserver = context.socket(zmq.PUSH)
         self.send_to_httpserver.connect(f"{args.zmq_mode}127.0.0.1:{httpserver_port}")
-        self.style_name =  style_name
+        self.style_name = style_name
         self.waiting_reqs = []
         self.decode_parall_lock = decode_parall_lock
         self.decode_proc_index = decode_proc_index
@@ -56,7 +49,7 @@ class TTSDecodeManager:
         self.flow_pre_lookahead_len = configs["flow"].pre_lookahead_len
         self.waiting_reqs = []
         self.speech_token_size = configs["llm"].speech_token_size
-        self.eos_id = self.speech_token_size
+        self.eos_id = configs["eos_token"]
         self.decode_max_batch_size = 1
 
     async def wait_to_model_ready(self):
@@ -75,11 +68,11 @@ class TTSDecodeManager:
         }
         await self.rpc_model.init_model(kvargs)
         return
-    
+
     async def infer_decodec_batch(self, batch):
         await self.rpc_model.decode(batch)
         return
-    
+
     def get_batch(self):
         if len(self.waiting_reqs) == 0:
             return []
@@ -107,7 +100,10 @@ class TTSDecodeManager:
         for decode_req in finished_reqs:
             decode_req.req.can_released_mark = True
             logger.info(f"detoken release req_id {decode_req.req.request_id}")
-            logger.info(f"req_id {decode_req.req.request_id}, decode_req.req.stream {decode_req.req.stream}, decode_req.req.finished {decode_req.req.finish_status.is_finished()}")
+            logger.info(
+                f"req_id {decode_req.req.request_id}, stream {decode_req.req.stream}, "
+                f"finished {decode_req.req.finish_status.is_finished()}"
+            )
             self.shm_req_manager.put_back_req_obj(decode_req.req)
             self.req_id_to_out.pop(decode_req.request_id, None)
         return
@@ -133,13 +129,13 @@ class TTSDecodeManager:
                         idle_count = 1000
                     logger.debug(f"{self.style_name} current waiting queue in tts_decode: {len(self.waiting_reqs)}")
                     self.remove_finished_reqs(batch)
-                    
+
     async def handle_loop(self):
         # asyncio.create_task(self.timer_to_detoken())
         while True:
             try:
                 recv_obj = await self.recv_from_tts2_gpt.recv_pyobj()
-                
+
                 if isinstance(recv_obj, int):
                     shm_req_index = recv_obj
                     req = self.shm_req_manager.get_req_obj_by_index(shm_req_index)
@@ -147,7 +143,7 @@ class TTSDecodeManager:
 
                     decode_req = DecodeReq(req, self.decode_token_hop_len, self.flow_pre_lookahead_len, self.eos_id)
                     self.req_id_to_out[req.request_id] = decode_req
-                
+
                 elif isinstance(recv_obj, tuple):
                     logger.info(f"Receive: | req_id: {recv_obj[0]} | {recv_obj[1]} token_ids")
                     self.waiting_reqs.append(recv_obj[0])
@@ -168,27 +164,28 @@ def start_tts_decode_process(params_list, pipe_writer):
     try:
         for params in params_list:
             args, tts_decode_port, httpserver_port, style_name, decode_parall_lock, decode_proc_index = params
-        
+
             tts_decodec = TTSDecodeManager(
                 args,
                 tts_decode_port=tts_decode_port,
                 httpserver_port=httpserver_port,
                 style_name=style_name,
                 decode_parall_lock=decode_parall_lock,
-                decode_proc_index=decode_proc_index
+                decode_proc_index=decode_proc_index,
             )
             asyncio.run(tts_decodec.wait_to_model_ready())
             managers.append(tts_decodec)
-    except Exception as e:
+    except Exception:
         import traceback
         import sys
+
         etype, evalue, tb = sys.exc_info()
-        err_str = '\n'.join(traceback.format_exception(etype, evalue, tb))
+        err_str = "\n".join(traceback.format_exception(etype, evalue, tb))
         logger.error(err_str)
         pipe_writer.send(err_str)
         raise
 
-    pipe_writer.send('init ok')
+    pipe_writer.send("init ok")
     loop = asyncio.new_event_loop()
     for manager in managers:
         loop.create_task(manager.loop_for_fwd())
