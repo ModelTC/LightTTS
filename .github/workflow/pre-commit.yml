@@ -1,0 +1,26 @@
+name: Pre-commit checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        # fetch-depth: 0 对差异检测很重要
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+
+    - name: Run pre-commit
+      uses: pre-commit/action@v3.0.1
+      # 这个 Action 会自动寻找 .pre-commit-config.yaml 并只对 PR 修改的文件运行
