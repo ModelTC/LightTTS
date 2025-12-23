@@ -89,8 +89,7 @@ class CosyVoiceFrontEnd:
             for i in range(text_token.shape[1]):
                 yield text_token[:, i: i + 1]
 
-    def _extract_speech_token(self, prompt_wav):
-        speech = load_wav(prompt_wav, 16000)
+    def _extract_speech_token(self, speech):
         assert speech.shape[1] / 16000 <= 30, 'do not support extract speech token for audio longer than 30s'
         feat = whisper.log_mel_spectrogram(speech, n_mels=128)
         speech_token = self.speech_tokenizer_session.run(None,
@@ -102,8 +101,7 @@ class CosyVoiceFrontEnd:
         speech_token_len = torch.tensor([speech_token.shape[1]], dtype=torch.int32).to(self.device)
         return speech_token, speech_token_len
 
-    def _extract_spk_embedding(self, prompt_wav):
-        speech = load_wav(prompt_wav, 16000)
+    def _extract_spk_embedding(self, speech):
         feat = kaldi.fbank(speech,
                            num_mel_bins=80,
                            dither=0,
@@ -114,8 +112,7 @@ class CosyVoiceFrontEnd:
         embedding = torch.tensor([embedding]).to(self.device)
         return embedding
 
-    def _extract_speech_feat(self, prompt_wav):
-        speech = load_wav(prompt_wav, 24000)
+    def _extract_speech_feat(self, speech):
         speech_feat = self.feat_extractor(speech).squeeze(dim=0).transpose(0, 1).to(self.device)
         speech_feat = speech_feat.unsqueeze(dim=0)
         speech_feat_len = torch.tensor([speech_feat.shape[1]], dtype=torch.int32).to(self.device)

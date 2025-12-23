@@ -129,38 +129,46 @@ def normal_start(args):
     set_env_start_args(args)
     logger.info(f"all start args:{args}")
     ports_locker.release_port()
-        
-    # 第一个实列需要先初始化，解决一些同步的问题
-    funcs = []
-    start_args = []
-    encode_parall_lock = mp.Semaphore(args.encode_paral_num)
-    for index_id in range(args.encode_process_num):
-        funcs.append(start_tts1_encode_process)
-        start_args.append((args, tts_llm_ports, tts1_encode_ports[index_id], index_id, encode_parall_lock))
-    process_manager.start_submodule_processes(start_funcs=funcs[0:1], start_args=start_args[0:1])
+    
+    logger.info("=" * 80)
+    logger.info("🚀 Starting LightTTS Server - FULL PARALLEL Mode")
+    logger.info("⚡ All 3 components will start simultaneously!")
+    logger.info("=" * 80)
     
     tts_decode_ports = can_use_ports[0 : num_loras]
     del can_use_ports[0 : num_loras]
-
-    funcs = []
-    start_args = []
+    
+    # 准备所有进程参数
+    all_funcs = []
+    all_start_args = []
+    
+    # 1️⃣ 准备 Encode 进程
+    encode_parall_lock = mp.Semaphore(args.encode_paral_num)
+    for index_id in range(args.encode_process_num):
+        all_funcs.append(start_tts1_encode_process)
+        all_start_args.append((args, tts_llm_ports, tts1_encode_ports[index_id], index_id, encode_parall_lock))
+    
+    # 2️⃣ 准备 LLM 进程
     gpt_parall_lock = mp.Semaphore(args.gpt_paral_num)
     for style_name, tts_llm_port, tts_decode_port in zip(["CosyVoice2"], tts_llm_ports, tts_decode_ports): 
-        funcs.append(start_tts_llm_process)
-        start_args.append((args, tts_llm_port, tts_decode_port, style_name, gpt_parall_lock))
-    process_manager.start_submodule_processes(start_funcs=funcs, start_args=start_args)
-
-
+        all_funcs.append(start_tts_llm_process)
+        all_start_args.append((args, tts_llm_port, tts_decode_port, style_name, gpt_parall_lock))
+    
+    # 3️⃣ 准备 Decode 进程
     decode_parall_lock = mp.Semaphore(args.decode_paral_num)
-    funcs = []
-    start_args = []
     for decode_proc_index in range(args.decode_process_num):
         tmp_args = []
         for style_name, tts_decode_port in zip(["CosyVoice2"], tts_decode_ports):
             tmp_args.append((args, tts_decode_port, httpserver_port, style_name, decode_parall_lock, decode_proc_index))
-        funcs.append(start_tts_decode_process)
-        start_args.append((tmp_args,))
-    process_manager.start_submodule_processes(start_funcs=funcs, start_args=start_args)
+        all_funcs.append(start_tts_decode_process)
+        all_start_args.append((tmp_args,))
+    
+    # 🔥 激进模式：一次性启动 Encode + LLM + Decode，完全并行初始化！
+    logger.info(f"🚀 Launching {len(all_funcs)} processes in parallel...")
+    process_manager.start_submodule_processes(start_funcs=all_funcs, start_args=all_start_args)
+    
+    logger.info("✅ All components started successfully!")
+    logger.info("=" * 80)
 
     if os.getenv("LIGHTLLM_DEBUG") == "1":
         from light_tts.server.api_http import app
@@ -184,7 +192,7 @@ def normal_start(args):
             "--bind",
             f"{args.host}:{args.port}",
             "--log-level",
-            "info",
+            "warning",  # 降低gunicorn日志级别，避免误导性的"Listening"消息
             "--access-logfile",
             "-",
             "--error-logfile",

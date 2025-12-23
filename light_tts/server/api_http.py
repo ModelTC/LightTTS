@@ -28,6 +28,13 @@ import copy
 import os
 from pathlib import Path
 import sys
+
+# 抑制常见的库警告
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning, module='diffusers')
+warnings.filterwarnings('ignore', category=UserWarning, message='.*weight_norm.*')
+warnings.filterwarnings('ignore', category=UserWarning, module='onnxruntime')
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'cosyvoice'))
 from light_tts.utils.load_utils import load_yaml
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -342,10 +349,12 @@ async def shutdown():
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("server start up")
+    logger.info("=" * 60)
+    logger.info("🚀 Application startup: Loading models...")
     loop = asyncio.get_event_loop()
     g_objs.set_args(get_env_start_args())
     loop.create_task(g_objs.httpserver_manager.handle_loop())
-    logger.info(f"server start up ok, loop use is {asyncio.get_event_loop()}")
-    logger.info(f"Listening at: http://{g_objs.args.host}:{g_objs.args.port}")
+    logger.info(f"✅ Application ready! Server is now accepting requests")
+    logger.info(f"🌐 Listening at: http://{g_objs.args.host}:{g_objs.args.port}")
+    logger.info("=" * 60)
     return

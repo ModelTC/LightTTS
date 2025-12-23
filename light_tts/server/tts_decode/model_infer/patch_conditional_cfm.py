@@ -39,17 +39,18 @@ def patched_forward_estimator(self, x, mask, mu, t, spks, cond, streaming=False)
 # 应用猴子补丁
 def apply_forward_estimator_patch():
     """应用forward_estimator的猴子补丁"""
-    print("正在应用 forward_estimator 猴子补丁...")
+    import os
     
     # 保存原始方法（可选，用于调试或回滚）
     if not hasattr(ConditionalCFM, '_original_forward_estimator'):
         ConditionalCFM._original_forward_estimator = ConditionalCFM.forward_estimator
-    
-    # 替换方法
+        # 替换方法
     ConditionalCFM.forward_estimator = patched_forward_estimator
-    
-    # print("forward_estimator 补丁已成功应用!")
-    print("现在所有 ConditionalCFM 实例都会使用带有 torch.cuda.synchronize() 的版本")
+        
+        # 只在verbose模式下打印
+        # if os.getenv('LIGHTTTS_VERBOSE', '0') == '1':
+        #     print("正在应用 forward_estimator 猴子补丁...")
+        #     print("现在所有 ConditionalCFM 实例都会使用带有 torch.cuda.synchronize() 的版本")
 
 def remove_forward_estimator_patch():
     """移除补丁，恢复原始方法（可选）"""
