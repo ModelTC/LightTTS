@@ -9,7 +9,7 @@ import time
 import uvloop
 import asyncio
 
-from light_tts.utils.load_utils import load_yaml
+from light_tts.utils.load_utils import load_yaml_lite
 from light_tts.utils.process_check import start_parent_check_thread
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -44,7 +44,7 @@ class TTSDecodeManager:
         self.new_req_id_to_req: Dict[int, DecodeReq] = {}
         self.shm_req_manager = ShmReqManager()
 
-        configs = load_yaml(args.model_dir)
+        configs = load_yaml_lite(args.model_dir)
         self.decode_token_hop_len = 25
         self.flow_pre_lookahead_len = configs["flow"].pre_lookahead_len
         self.waiting_reqs = []

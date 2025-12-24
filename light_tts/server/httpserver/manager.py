@@ -18,7 +18,7 @@ from light_tts.server.core.objs.io_objs import GroupReqObjs
 import pickle
 from light_tts.server.core.objs import SamplingParams
 from fastapi import Request
-from light_tts.utils.load_utils import load_yaml
+from light_tts.utils.load_utils import load_yaml_frontend
 
 logger = init_logger(__name__)
 
@@ -46,7 +46,7 @@ class HttpServerManager:
         self.shared_speech_manager = SharedSpeechManager(f"{args.port}_cosyvoice", args.cache_capacity)
         self.shm_req_manager = ShmReqManager()
 
-        configs = load_yaml(args.model_dir)
+        configs = load_yaml_frontend(args.model_dir)
         self.model_config = configs["llm"].llm.model.model.config
         self.vocab_size = self.model_config.vocab_size
         self.sos = self.vocab_size + configs["sos"]

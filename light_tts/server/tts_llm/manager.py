@@ -25,7 +25,7 @@ from light_tts.utils.log_utils import init_logger
 from light_tts.server.core.objs.shm_speech_manager import SharedSpeechManager
 from light_tts.common.mem_manager import ReadOnlyStaticsMemoryManager
 import multiprocessing as mp
-from light_tts.utils.load_utils import CosyVoiceVersion, load_yaml
+from light_tts.utils.load_utils import CosyVoiceVersion, load_yaml_lite
 from itertools import chain
 import threading
 from light_tts.server.tts_llm.token_load import TokenLoad
@@ -88,7 +88,7 @@ class RouterManager:
         self.max_total_token_num = args.max_total_token_num
         assert self.max_req_total_len <= self.max_total_token_num
 
-        configs = load_yaml(args.model_dir)
+        configs = load_yaml_lite(args.model_dir)
         self.model_config = configs["llm"].llm.model.model.config
         self.speech_token_size = configs["llm"].speech_token_size
         self.mix_ratio = configs["llm"].mix_ratio

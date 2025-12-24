@@ -13,7 +13,7 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from light_tts.utils.config_utils import get_config_json
 from light_tts.utils.log_utils import init_logger
 from light_tts.server.core.objs.shm_speech_manager import SharedSpeechManager
-from light_tts.utils.load_utils import CosyVoiceVersion, load_yaml
+from light_tts.utils.load_utils import CosyVoiceVersion, load_yaml_frontend
 from cosyvoice.cli.frontend import CosyVoiceFrontEnd
 from light_tts.utils.graceful_utils import graceful_registry
 from light_tts.utils.process_check import start_parent_check_thread
@@ -56,7 +56,7 @@ class TTS1EncodeManager:
         self.trust_remote_code = args.trust_remote_code
         self.args = args
 
-        configs = load_yaml(args.model_dir)
+        configs = load_yaml_frontend(args.model_dir)
         self.configs = configs
         self.resample_rate = configs["sample_rate"]
         self.token_hop_len = 25

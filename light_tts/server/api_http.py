@@ -37,7 +37,7 @@ warnings.filterwarnings("ignore", category=UserWarning, message=".*weight_norm.*
 warnings.filterwarnings("ignore", category=UserWarning, module="onnxruntime")
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "cosyvoice"))
-from light_tts.utils.load_utils import CosyVoiceVersion, load_yaml
+from light_tts.utils.load_utils import CosyVoiceVersion, load_yaml_frontend
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 import argparse
@@ -98,7 +98,7 @@ class G_Objs:
             args, httpserver_port=args.httpserver_port, tts1_encode_ports=args.tts1_encode_ports
         )
         self.shared_token_load = TokenLoad(f"{get_unique_server_name()}_shared_token_load", 1)
-        configs = load_yaml(args.model_dir)
+        configs = load_yaml_frontend(args.model_dir)
         if configs["cosyvoice_version"] == CosyVoiceVersion.VERSION_2:
             speech_tokenizer_model = "{}/speech_tokenizer_v2.onnx".format(args.model_dir)
         else:
