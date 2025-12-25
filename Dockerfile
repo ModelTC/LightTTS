@@ -14,7 +14,8 @@ RUN chmod 777 -R /tmp && apt-get update && DEBIAN_FRONTEND=noninteractive apt-ge
     curl \
     g++ \
     make \
-    git && \
+    git \
+    ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 RUN case ${TARGETPLATFORM} in \

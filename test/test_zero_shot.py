@@ -13,13 +13,15 @@ parser.add_argument("--port", type=int, default=8080, help="Server port number (
 parser.add_argument(
     "--cosyvoice_version", type=int, choices=[2, 3], default=3, help="CosyVoice version: 2 or 3 (default: 3)"
 )
+parser.add_argument("--stream", action="store_true", default=False, help="是否使用流式推理 (default: True)")
+parser.add_argument("--num", type=int, default=5, help="测试数量 (default: 5)")
 args = parser.parse_args()
 
 url = f"http://0.0.0.0:{args.port}/inference_zero_shot"
-num = 5
+num = args.num
 # 准备要发送的文本和音频文件
 path = "../cosyvoice/asset/zero_shot_prompt.wav"
-stream = True  # 是否使用流式推理
+stream = args.stream  # 是否使用流式推理
 with open("test_texts.json", "r") as f:
     all_inputs = json.load(f)
 res_list = []

@@ -11,6 +11,7 @@ import random
 from tqdm import tqdm
 import os
 import argparse
+import torch
 
 # 解析命令行参数
 parser = argparse.ArgumentParser(description="Zero-shot TTS stream speed test script")
@@ -26,6 +27,8 @@ num_workers = [1, 2, 4, 8]
 num_test = 50
 path = "../cosyvoice/asset/zero_shot_prompt.wav"
 sample_rate = 24000
+# Get device name for file naming
+device_name = torch.cuda.get_device_name(0).replace(" ", "_").lower() if torch.cuda.is_available() else "cpu"
 # get all inputs
 with open("test_texts.json", "r") as f:
     all_inputs = json.load(f)
@@ -81,7 +84,7 @@ def get_file(index):
 results = []
 for num_worker in num_workers:
     print(f"Concurrency {num_worker} test starts")
-    cache_file = f"./cache_{num_worker}.json"
+    cache_file = f"./cache_{device_name}_{num_worker}.json"
     # if os.path.exists(cache_file):
     # with open(cache_file, "r") as f:
     # cache_json = json.load(f)
@@ -130,7 +133,7 @@ if failed == 0:
 else:
     print(f"Total failed {failed}")
 
-result_path = f"./summary_triton_flashdecoding_v100_stream_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.md"
+result_path = f"./summary_triton_flashdecoding_{device_name}_stream_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.md"
 
 heads = results[0].keys()
 with open(result_path, "w") as md_file:
