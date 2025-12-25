@@ -1,8 +1,8 @@
 ![Light TTS Banner](asset/light-tts.jpg)
 
-# light-tts
+# LightTTS
 
-**light-tts** is a lightweight and high-performance text-to-speech (TTS) inference and service framework based on Python. It is built around the [cosyvoice](https://github.com/FunAudioLLM/CosyVoice) model and based on the [lightllm](https://github.com/ModelTC/lightllm), with optimizations to support fast, scalable, and service-ready TTS deployment.
+**LightTTS** is a lightweight and high-performance text-to-speech (TTS) inference and service framework based on Python. It is built around the [cosyvoice](https://github.com/FunAudioLLM/CosyVoice) model and based on the [lightllm](https://github.com/ModelTC/lightllm), with optimizations to support fast, scalable, and service-ready TTS deployment.
 
 ---
 
@@ -34,10 +34,10 @@
 
     ```bash
     # Clone the repo
-    git clone --recursive https://github.com/ModelTC/light-tts.git
-    cd light-tts
+    git clone --recursive https://github.com/ModelTC/LightTTS.git
+    cd LightTTS
     # If you failed to clone the submodule due to network failures, please run the following command until success
-    # cd light-tts
+    # cd LightTTS
     # git submodule update --init --recursive
 
     # (Recommended) Create a new conda environment

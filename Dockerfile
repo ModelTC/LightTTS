@@ -1,8 +1,12 @@
-FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
-ARG MAMBA_VERSION=23.1.0-1
+ARG CUDA_VERSION=12.8.0
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu22.04
+ARG PYTHON_VERSION=3.10
+ARG MAMBA_VERSION=24.7.1-0
 ARG TARGETPLATFORM
+ENV PATH=/opt/conda/bin:$PATH \
+    CONDA_PREFIX=/opt/conda
 
-WORKDIR /opt
+WORKDIR /root
 
 RUN chmod 777 -R /tmp && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -13,6 +17,24 @@ RUN chmod 777 -R /tmp && apt-get update && DEBIAN_FRONTEND=noninteractive apt-ge
     git && \
     rm -rf /var/lib/apt/lists/*
 
-RUN git clone --recursive https://github.com/ModelTC/light-tts.git
-RUN cd light-tts && pip3 install -r requirements.txt
-WORKDIR /opt/light-tts
+RUN case ${TARGETPLATFORM} in \
+    "linux/arm64")  MAMBA_ARCH=aarch64  ;; \
+    *)              MAMBA_ARCH=x86_64   ;; \
+    esac && \
+    curl -fsSL -o ~/mambaforge.sh "https://github.com/conda-forge/miniforge/releases/download/${MAMBA_VERSION}/Mambaforge-${MAMBA_VERSION}-Linux-${MAMBA_ARCH}.sh" && \
+    bash ~/mambaforge.sh -b -p /opt/conda && \
+    rm ~/mambaforge.sh
+
+    RUN case ${TARGETPLATFORM} in \
+    "linux/arm64")  exit 1 ;; \
+    *)              /opt/conda/bin/conda update -y conda &&  \
+    /opt/conda/bin/conda install -y "python=${PYTHON_VERSION}" ;; \
+    esac && \
+    /opt/conda/bin/conda clean -ya
+
+COPY ./requirements.txt /lighttts/requirements.txt
+RUN pip install -U pip
+RUN pip install -r /lighttts/requirements.txt --no-cache-dir
+
+COPY . /lighttts
+WORKDIR /lighttts
