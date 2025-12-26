@@ -139,7 +139,7 @@ We have conducted performance benchmarks on different GPU configurations to demo
 Model: `Fun-CosyVoice3-0.5B-2512` datatype: `float16`
 
 ### NVIDIA GeForce RTX 4090D
-non-stream: `test/test_zs.py`
+non-stream: `test/test_zs_speed.py`
 
 |num_workers|cost time 50%|cost time 90%|cost time 99%|rtf 50%|rtf 90%|rtf 99%|avg rtf|total_cost_time|qps|
 |------|------|------|------|------|------|------|------|------|------|
