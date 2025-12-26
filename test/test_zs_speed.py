@@ -53,22 +53,29 @@ def get_file(index):
 
     start = time.time()
     response = requests.post(url, files=files, data=data, stream=True)
-    cost_time = time.time() - start
+
+    audio_data = bytearray()
+    rtf = 0
+    cost_time = 0
 
     try:
         if response.status_code == 200:
-            audio_data = bytearray()
             for chunk in response.iter_content(chunk_size=4096):  # 分批读取
                 if chunk:
                     audio_data.extend(chunk)
+            cost_time = time.time() - start
+            speech_len = len(audio_data) / 2 / 24000
+            rtf = cost_time / speech_len if speech_len > 0 else 0
         else:
             print(f"{index} {inputs} \n error:{response.text}")
             failed += 1
+            cost_time = time.time() - start
     except Exception as e:
         print(f"An exception occurred\ntext: {inputs}\n{e}\n{response.text}")
         failed += 1
+        cost_time = time.time() - start
     finally:
-        return cost_time
+        return cost_time, rtf
 
 
 results = []
@@ -79,18 +86,23 @@ for num_worker in num_workers:
 
     start_time = time.time()
     with ProcessPoolExecutor(max_workers=num_worker) as executor:
-        all_cost_times = list(tqdm(executor.map(get_file, range(num_test)), total=num_test, desc="running tests"))
+        all_results = list(tqdm(executor.map(get_file, range(num_test)), total=num_test, desc="running tests"))
     total_time = time.time() - start_time
 
-    # 假设是你的数据数组
-    data = np.array(all_cost_times)
+    all_cost_times = [result[0] for result in all_results]
+    all_rtf = [result[1] for result in all_results]
+
     result = {"num_workers": num_worker}
     # 计算分位数
     if failed - last_failed > 0:
         print(f"Failed {failed - last_failed}")
     for percentile in [50, 90, 99]:
-        percentile_data = np.percentile(data, percentile)
-        result[f"{percentile}%"] = round(percentile_data, 2)
+        percentile_data = np.percentile(np.array(all_cost_times), percentile)
+        result[f"cost time {percentile}%"] = round(percentile_data, 2)
+    for percentile in [50, 90, 99]:
+        percentile_data = np.percentile(np.array(all_rtf), percentile)
+        result[f"rtf {percentile}%"] = round(percentile_data, 2)
+    result["avg rtf"] = round(np.mean(np.array(all_rtf)), 2)
     result["total_cost_time"] = round(total_time, 2)
     result["qps"] = round(num_test / total_time, 2)
     results.append(result)

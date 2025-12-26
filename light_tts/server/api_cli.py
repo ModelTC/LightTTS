@@ -116,7 +116,7 @@ def make_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--graph_max_len_in_batch",
         type=int,
-        default=2048,
+        default=32768,
         help="""Maximum sequence length that can be captured by the cuda graph for decodign stage.
                 The default value is 8192. It will turn into eagar mode if encounters a larger value. """,
     )
