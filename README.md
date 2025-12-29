@@ -18,6 +18,7 @@
 - 🧱 **Modular Architecture (Encode–LLM–Decode)**: Refactored from LightLLM into three decoupled modules—Encoder, LLM, and Decoder—each running as separate processes for efficient task parallelism and scalability.
 - 🌐 **Service Ready and Easy Integration**: Comes with an HTTP API for fast deployment and simple APIs for integration into other Python or web projects
 - 🔄 **Bi-streaming Mode via WebSocket**: Supports interactive bi-directional streaming using WebSocket for low-latency, real-time TTS communication
+- 🔄 **Multi-LLM Support**: Supports loading multiple llm weights from a single model directory
 ---
 
 ## ⚡️ Get Started
@@ -34,6 +35,11 @@
 
     # Run the image
     docker run -it --gpus all -p 8080:8080 --shm-size 4g -v your_local_path:/data/ light-tts:latest /bin/bash
+
+    # (Recommended) Update to the latest LightTTS code
+    git checkout main && git pull
+
+    # Then proceed to model download and service startup (see below)
 
 - (Option 2) Install from Source
 
@@ -125,9 +131,71 @@ For more parameters, see `light_tts/server/api_cli.py`
 
 Wait for the service to initialize. The default address is `http://localhost:8080`.
 
+### Multi-LLM Configuration
+
+LightTTS supports loading multiple llm weights from a single model directory. You can configure multiple llm weights by creating a `config.json` file in your model directory.
+
+**Example `config.json`:**
+
+```json
+{
+    "lora_info": [
+        {
+            "style_name": "style0",
+            "llm_path": "llm0.pt"
+        },
+        {
+            "style_name": "style1",
+            "llm_path": "llm1.pt"
+        }
+    ]
+}
+```
+
+**Note:** 
+- If `config.json` does not exist, the system will use a default single-style configuration
+- The system will automatically start separate LLM processes for each style to support concurrent inference
+- You can use the `tts_model_name` parameter to specify the style name when sending requests
+
 ### Request Examples
 
 Once the service is running, you can interact with it through the HTTP API. We support three modes: **non-streaming**, **streaming**, and **bi-streaming**.
+
+**Quick Start - Simple Request:**
+
+```python
+import requests
+import numpy as np
+import soundfile as sf
+
+url = "http://localhost:8080/inference_zero_shot"
+
+# For CosyVoice3, use special prompt format
+prompt_text = "You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。"
+# For CosyVoice2, use: prompt_text = "希望你以后能够做的比我还好呦。"
+
+files = {"prompt_wav": open("your_prompt_audio.wav", "rb")}
+data = {
+    "tts_text": "收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。",
+    "prompt_text": prompt_text,
+    "stream": False,  # Set to True for streaming mode
+    "tts_model_name": "default",
+}
+
+response = requests.post(url, files=files, data=data, stream=True)
+
+# Collect audio data
+audio_data = bytearray()
+for chunk in response.iter_content(chunk_size=4096):
+    if chunk:
+        audio_data.extend(chunk)
+
+# Convert to numpy array and save as WAV
+audio_np = np.frombuffer(audio_data, dtype=np.int16)
+sf.write("output.wav", audio_np, samplerate=24000, subtype="PCM_16")
+```
+
+**More Examples:**
 
 - **Non-streaming and Streaming**: Use `test/test_zero_shot.py` for examples, which prints metrics such as RTF (Real-Time Factor) and TTFT (Time To First Token)
 - **Bi-streaming**: Uses WebSocket interface. See usage examples in `test/test_bistream.py`
