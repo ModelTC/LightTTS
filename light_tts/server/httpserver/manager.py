@@ -163,6 +163,7 @@ class HttpServerManager:
         try:
             semantic_len = request_dict["semantic_len"]
             bistream = request_dict.get("bistream", False)
+            stream = request_dict.get("stream", False)
             speed = request_dict.get("speed", 1.0)
             request_headers = request.headers if request is not None else {}
             await self._log_req_header(request_headers, request_id)
@@ -189,7 +190,7 @@ class HttpServerManager:
             req_objs = []
             req_obj.init(request_id, prompt_ids, request_dict, sampling_params, self.sos, self.task_id, speed)
             req_objs.append(req_obj)
-            req_status = ReqStatus(request_id, req_objs, start_time, style_name)
+            req_status = ReqStatus(request_id, req_objs, start_time, style_name, stream)
             self.req_id_to_out_inf[request_id] = req_status
 
             await self.transfer_to_next_module(style_name, req_status.group_req_objs)
@@ -291,6 +292,7 @@ class HttpServerManager:
                         async with req_status.lock:
                             req_status.out_data_info_list.append((tts_speech.copy(), finish_status, finalize))
                             logger.info(f"req_id {req.request_id} shm_index {req.index_in_shm_mem} gen finished")
+                            req_status.non_stream_finished = True
                             req_status.event.set()
 
             self.recycle_event.set()
@@ -298,7 +300,7 @@ class HttpServerManager:
 
 
 class ReqStatus:
-    def __init__(self, req_id, req_objs: List[Req], start_time, style_name: str) -> None:
+    def __init__(self, req_id, req_objs: List[Req], start_time, style_name: str, stream: bool) -> None:
         self.lock = asyncio.Lock()
         self.event = asyncio.Event()
         self.group_req_objs = GroupReqObjs(
@@ -308,9 +310,11 @@ class ReqStatus:
             style_name=style_name,
         )
         self.out_data_info_list = []
+        # 判断非流式结果是否被读取
+        self.non_stream_finished = stream
 
     def can_release(self):
         for req in self.group_req_objs.shm_req_objs:
-            if not req.can_release():
+            if not (req.can_release() and self.non_stream_finished):
                 return False
         return True
