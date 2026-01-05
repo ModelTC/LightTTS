@@ -123,8 +123,8 @@ The default values are usually the fastest and generally do not need to be adjus
 - `data_type`: The data type for LLM inference (default: float16)
 - `load_jit`: Whether to load the flow_encoder in JIT mode (default: False).
 - `max_total_token_num`: LLM arg, total token count the GPU and model can support = `max_batch * (input_len + output_len)` (default: 64 * 1024)
-- `max_req_total_len`: LLM arg, maximum value for `req_input_len + req_output_len` (default: 32768, matches `max_position_embeddings`)
-- `graph_max_len_in_batch`: Maximum sequence length for CUDA graph capture in decoding stage (default: 32768)
+- `max_req_total_len`: LLM arg, maximum value for `req_input_len + req_output_len` (default: 8192, sufficient for most use cases, can also be set up to a maximum of 32768, which is Qwen2's `max_position_embeddings`)
+- `graph_max_len_in_batch`: Maximum sequence length for CUDA graph capture in decoding stage (default: 8192)
 - `graph_max_batch_size`: Maximum batch size for CUDA graph capture in decoding stage (default: 16)
 
 For more parameters, see `light_tts/server/api_cli.py`

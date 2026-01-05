@@ -48,10 +48,10 @@ def make_argument_parser() -> argparse.ArgumentParser:
         help="max tokens num for new cat batch, it control prefill batch size to Preventing OOM",
     )
     parser.add_argument(
-        "--running_max_req_size", type=int, default=100, help="the max size for forward requests in the same time"
+        "--running_max_req_size", type=int, default=30, help="the max size for forward requests in the same time"
     )
     parser.add_argument(
-        "--max_req_total_len", type=int, default=32 * 1024, help="the max value for req_input_len + req_output_len"
+        "--max_req_total_len", type=int, default=8192, help="the max value for req_input_len + req_output_len"
     )
     parser.add_argument("--encode_process_num", type=int, default=1)
     parser.add_argument("--decode_process_num", type=int, default=1)
@@ -59,7 +59,12 @@ def make_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gpt_paral_num", type=int, default=50)
     parser.add_argument("--gpt_paral_step_num", type=int, default=200)
     parser.add_argument("--decode_paral_num", type=int, default=1)
-    parser.add_argument("--decode_max_batch_size", type=int, default=1)
+    parser.add_argument(
+        "--decode_max_batch_size",
+        type=int,
+        default=1,
+        help="the max batch size for token2wav, currently only support 1",
+    )
     parser.add_argument(
         "--mode",
         type=str,
@@ -111,12 +116,12 @@ def make_argument_parser() -> argparse.ArgumentParser:
         type=int,
         default=16,
         help="""Maximum batch size that can be captured by the cuda graph for decodign stage.
-                The default value is 8. It will turn into eagar mode if encounters a larger value.""",
+                The default value is 16. It will turn into eagar mode if encounters a larger value.""",
     )
     parser.add_argument(
         "--graph_max_len_in_batch",
         type=int,
-        default=32768,
+        default=8192,
         help="""Maximum sequence length that can be captured by the cuda graph for decodign stage.
                 The default value is 8192. It will turn into eagar mode if encounters a larger value. """,
     )
