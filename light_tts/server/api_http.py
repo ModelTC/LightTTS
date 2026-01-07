@@ -93,6 +93,7 @@ class G_Objs:
     httpserver_manager: HttpServerManager = None
     shared_token_load: TokenLoad = None
     lora_styles: List[str] = None
+    version: CosyVoiceVersion = None
 
     def set_args(self, args):
         self.args = args
@@ -103,6 +104,7 @@ class G_Objs:
         all_config = get_config_json(args.model_dir)
         self.lora_styles = [item["style_name"] for item in all_config["lora_info"]]
         configs = load_yaml_frontend(args.model_dir)
+        self.version = configs["cosyvoice_version"]
         if configs["cosyvoice_version"] == CosyVoiceVersion.VERSION_2:
             speech_tokenizer_model = "{}/speech_tokenizer_v2.onnx".format(args.model_dir)
         else:
@@ -138,7 +140,7 @@ async def healthcheck():
     if os.environ.get("DEBUG_HEALTHCHECK_RETURN_FAIL") == "true":
         return JSONResponse({"message": "Error"}, status_code=404)
 
-    if await health_check(g_objs.httpserver_manager, g_id_gen, g_objs.lora_styles):
+    if await health_check(g_objs.httpserver_manager, g_id_gen, g_objs.lora_styles, g_objs.version):
         return JSONResponse({"message": "Ok"}, status_code=200)
     else:
         return JSONResponse({"message": "Error"}, status_code=404)
@@ -373,6 +375,14 @@ async def startup_event():
     loop = asyncio.get_event_loop()
     g_objs.set_args(get_env_start_args())
     loop.create_task(g_objs.httpserver_manager.handle_loop())
+
+    # 启动时进行健康检查，确保系统正常工作
+    logger.info("🔍 Running startup health check...")
+    if await health_check(g_objs.httpserver_manager, g_id_gen, g_objs.lora_styles, g_objs.version):
+        logger.info("✅ Startup health check passed!")
+    else:
+        logger.critical("❌ Startup health check failed! Server may not function correctly.")
+
     logger.info("✅ Application ready! Server is now accepting requests")
     logger.info(f"🌐 Listening at: http://{g_objs.args.host}:{g_objs.args.port}")
     logger.info("=" * 60)
