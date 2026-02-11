@@ -1,6 +1,16 @@
 import argparse
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "1", "y"):
+        return True
+    if v.lower() in ("no", "false", "f", "0", "n"):
+        return False
+    raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
 def make_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="localhost")
@@ -127,13 +137,13 @@ def make_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--load_jit",
-        type=bool,
+        type=str2bool,
         default=False,
         help="Whether to load the flow_encoder in JIT mode.",
     )
     parser.add_argument(
         "--load_trt",
-        type=bool,
+        type=str2bool,
         default=True,
         help="Whether to load the flow_decoder in trt.",
     )
