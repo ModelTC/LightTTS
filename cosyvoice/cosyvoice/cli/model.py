@@ -21,10 +21,11 @@ import time
 from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
+from light_tts.utils.log_utils import init_logger
 from cosyvoice.utils.common import fade_in_out
 from cosyvoice.utils.file_utils import convert_onnx_to_trt, export_cosyvoice2_vllm
 from cosyvoice.utils.common import TrtContextWrapper
-
+logger = init_logger(__name__)
 
 class CosyVoiceModel:
 
@@ -402,6 +403,7 @@ class CosyVoice3Model(CosyVoice2Model):
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, token_offset, uuid, stream=False, finalize=False, speed=1.0):
         with torch.cuda.amp.autocast(self.fp16):
+            logger.info("start flow inference")
             tts_mel, _ = self.flow.inference(token=token.to(self.device, dtype=torch.int32),
                                              token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
                                              prompt_token=prompt_token.to(self.device),
@@ -411,6 +413,7 @@ class CosyVoice3Model(CosyVoice2Model):
                                              embedding=embedding.to(self.device),
                                              streaming=stream,
                                              finalize=finalize)
+            logger.info("end flow inference")
             tts_mel = tts_mel[:, :, token_offset * self.flow.token_mel_ratio:]
             # append mel cache
             if self.hift_cache_dict[uuid] is not None:
@@ -422,7 +425,9 @@ class CosyVoice3Model(CosyVoice2Model):
             if speed != 1.0:
                 assert token_offset == 0 and finalize is True, 'speed change only support non-stream inference mode'
                 tts_mel = F.interpolate(tts_mel, size=int(tts_mel.shape[2] / speed), mode='linear')
+            logger.info("start hift inference")
             tts_speech, _ = self.hift.inference(speech_feat=tts_mel, finalize=finalize)
+            logger.info("end hift inference")
             tts_speech = tts_speech[:, self.hift_cache_dict[uuid]['speech_offset']:]
             self.hift_cache_dict[uuid]['speech_offset'] += tts_speech.shape[1]
         return tts_speech

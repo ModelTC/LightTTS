@@ -162,7 +162,7 @@ if __name__ == "__main__":
     q_head_num = 14
     kv_head_num = 2
 
-    for seq_len in [2048]:
+    for seq_len in [128]:
         for batch_size in [1, 2, 4, 8]:
             test_func_args = {
                 "batch_size": batch_size,

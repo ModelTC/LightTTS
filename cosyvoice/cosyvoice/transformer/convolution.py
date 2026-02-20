@@ -172,6 +172,25 @@ class CausalConv1d(torch.nn.Conv1d):
         self.causal_padding = int((kernel_size * dilation - dilation) / 2) * 2 + (kernel_size + 1) % 2
         assert causal_type in ['left', 'right']
         self.causal_type = causal_type
+        # On ROCm/MIOpen, dilated conv (dilation>=2) falls back to naive_conv
+        # which is ~20x slower. Use unfold+matmul to bypass this.
+        self._use_unfold = (dilation >= 2 and groups == 1)
+
+    def _unfold_dilated_conv1d(self, x: torch.Tensor) -> torch.Tensor:
+        """Dilated conv1d via F.unfold + matmul, bypassing MIOpen naive_conv."""
+        k = self.kernel_size[0]
+        d = self.dilation[0]
+        # [B, C_in, L] -> [B, C_in, 1, L] for F.unfold
+        x_2d = x.unsqueeze(2)
+        # im2col: [B, C_in*K, L_out]
+        unfolded = F.unfold(x_2d, kernel_size=(1, k), dilation=(1, d))
+        # weight: [C_out, C_in, K] -> [C_out, C_in*K]
+        w = self.weight.reshape(self.out_channels, -1)
+        # [C_out, C_in*K] @ [B, C_in*K, L_out] -> [B, C_out, L_out]
+        out = torch.matmul(w, unfolded)
+        if self.bias is not None:
+            out = out + self.bias.unsqueeze(0).unsqueeze(2)
+        return out
 
     def forward(self, x: torch.Tensor, cache: torch.Tensor = torch.zeros(0, 0, 0)) -> Tuple[torch.Tensor]:
         input_timestep = x.shape[2]
@@ -182,7 +201,10 @@ class CausalConv1d(torch.nn.Conv1d):
             x = torch.concat([cache, x], dim=2)
         else:
             x = torch.concat([x, cache], dim=2)
-        x = super(CausalConv1d, self).forward(x)
+        if self._use_unfold:
+            x = self._unfold_dilated_conv1d(x)
+        else:
+            x = super(CausalConv1d, self).forward(x)
         assert x.shape[2] == input_timestep
         return x
 

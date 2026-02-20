@@ -29,7 +29,7 @@ class TTS2DecodeModelRpcServer:
             self.fp16 = True
             self.model = CosyVoice2Model(configs["llm"], configs["flow"], configs["hift"], fp16=self.fp16)
         elif version == CosyVoiceVersion.VERSION_3:
-            self.fp16 = False
+            self.fp16 = True
             self.model = CosyVoice3Model(configs["llm"], configs["flow"], configs["hift"], fp16=self.fp16)
         self.model.load("{}/llm.pt".format(model_dir), "{}/flow.pt".format(model_dir), "{}/hift.pt".format(model_dir))
 

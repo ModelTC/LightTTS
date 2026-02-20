@@ -1,0 +1,30 @@
+#FROM rocm/pytorch:rocm7.2_ubuntu22.04_py3.10_pytorch_release_2.9.1
+FROM docker.1ms.run/rocm/vllm-dev:nightly_main_20251115
+# FROM rocm/pytorch:rocm7.1.1_ubuntu22.04_py3.10_pytorch_release_2.9.1
+
+# 1. 依赖包安装
+# 注意：rocm 镜像通常不需要再手动安装 g++ 等，但保留以防万一。
+RUN chmod 777 -R /tmp && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl-dev \
+    curl \
+    g++ \
+    make \
+    git \
+    ffmpeg \
+    unzip \
+    libjpeg-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY ./requirements-amd.txt /lighttts/requirements-amd.txt
+RUN pip install -U pip
+
+# 安装其余依赖 (去除缓存以减小体积)
+RUN pip install "setuptools<70.0.0" wheel
+RUN pip install --no-build-isolation openai-whisper==20240930
+RUN pip install -r /lighttts/requirements-amd.txt --no-cache-dir
+
+COPY . /lighttts
+WORKDIR /lighttts
+

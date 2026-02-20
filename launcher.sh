@@ -1,4 +1,2 @@
-# Enabling NVIDIA's multiprocessing services, Sometimes it can accelerate
-nvidia-cuda-mps-control -d
-# python -m light_tts.server.api_server --model_dir ./pretrained_models/CosyVoice2-0.5B
-python -m light_tts.server.api_server --model_dir ./pretrained_models/Fun-CosyVoice3-0.5B-2512 --port 8080
+export TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1
+python -m light_tts.server.api_server --model_dir /data/Fun-CosyVoice3-0.5B --load_jit False --load_trt False
