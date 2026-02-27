@@ -201,7 +201,12 @@ async def inference_zero_shot_bistream(websocket: WebSocket):
     # 处理音频文件（假设客户端发送 base64 编码的音频）
     prompt_wav_data = await websocket.receive_bytes()
     wav_bytes_io = BytesIO(prompt_wav_data)
-    prompt_speech_16k = load_wav(wav_bytes_io, 16000)
+    try:
+        prompt_speech_16k = load_wav(wav_bytes_io, 16000)
+    except Exception as e:
+        print(f"load_wav failed: {e}")
+        await websocket.close(code=1003, reason="audio file format is incorrect")
+        return
     semantic_len = (prompt_speech_16k.shape[1] + 239) // 640 + 10  # + 10 for safe
 
     wav_bytes_io.seek(0)
@@ -285,7 +290,11 @@ async def inference_zero_shot(
     sampling_params.verify()
     prompt_text = g_objs.frontend.text_normalize(prompt_text, split=False)
     tts_texts = g_objs.frontend.text_normalize(tts_text, split=True)
-    prompt_speech_16k = load_wav(prompt_wav.file, 16000)
+    try:
+        prompt_speech_16k = load_wav(prompt_wav.file, 16000)
+    except Exception as e:
+        print(f"load_wav failed: {e}")
+        return create_error_response(HTTPStatus.BAD_REQUEST, "audio file format is incorrect")
     semantic_len = (prompt_speech_16k.shape[1] + 239) // 640 + 10  # + 10 for safe
 
     prompt_wav.file.seek(0)
