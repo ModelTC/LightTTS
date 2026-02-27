@@ -11,7 +11,7 @@ logger = init_logger(__name__)
 
 
 def get_config_json(model_dir):
-    config_path = os.path.join(model_dir, "config.json")
+    config_path = os.path.join(model_dir, "style_config.json")
     if os.path.exists(config_path):
         with open(config_path, "r") as f:
             config = json.load(f)

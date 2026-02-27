@@ -133,9 +133,9 @@ Wait for the service to initialize. The default address is `http://localhost:808
 
 ### Multi-LLM Configuration
 
-LightTTS supports loading multiple llm weights from a single model directory. You can configure multiple llm weights by creating a `config.json` file in your model directory.
+LightTTS supports loading multiple llm weights from a single model directory. You can configure multiple llm weights by creating a `style_config.json` file in your model directory.
 
-**Example `config.json`:**
+**Example `style_config.json`:**
 
 ```json
 {
@@ -153,7 +153,7 @@ LightTTS supports loading multiple llm weights from a single model directory. Yo
 ```
 
 **Note:** 
-- If `config.json` does not exist, the system will use a default single-style configuration
+- If `style_config.json` does not exist, the system will use a default single-style configuration
 - The system will automatically start separate LLM processes for each style to support concurrent inference
 - You can use the `tts_model_name` parameter to specify the style name when sending requests
 
