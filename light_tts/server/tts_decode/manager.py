@@ -164,6 +164,14 @@ def start_tts_decode_process(
 ):
     graceful_registry(inspect.currentframe().f_code.co_name)
 
+    import os as _os
+    if _os.environ.get("LIGHT_TTS_MODEL_KEY"):
+        from light_tts.utils.model_crypto import apply_decryption_patches
+        # decode doesn't use onnxruntime; skip that patch to avoid importing
+        # it (onnxruntime.InferenceSession init spawns CUDA EP worker threads
+        # that suspect-correlate with a ZMQ handle_loop stall here).
+        apply_decryption_patches(patch_onnx=False)
+
     torch.backends.cudnn.enabled = True
     try:
         tts_decodec = TTSDecodeManager(

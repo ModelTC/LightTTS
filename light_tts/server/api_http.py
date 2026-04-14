@@ -38,6 +38,14 @@ warnings.filterwarnings("ignore", category=UserWarning, message=".*weight_norm.*
 warnings.filterwarnings("ignore", category=UserWarning, module="onnxruntime")
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "cosyvoice"))
+
+# When weights are encrypted, gunicorn workers are fresh interpreters and must
+# install the in-memory decryption patches before any model loaders run.
+if os.environ.get("LIGHT_TTS_MODEL_KEY"):
+    from light_tts.utils.model_crypto import apply_decryption_patches
+
+    apply_decryption_patches()
+
 from light_tts.utils.config_utils import get_config_json
 from light_tts.utils.load_utils import CosyVoiceVersion, load_yaml_frontend
 

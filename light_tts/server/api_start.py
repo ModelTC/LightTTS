@@ -89,6 +89,12 @@ def setup_signal_handlers(http_server_process, process_manager):
 def normal_start(args):
     set_unique_server_name(args)
 
+    if os.environ.get("LIGHT_TTS_MODEL_KEY"):
+        from light_tts.utils.model_crypto import apply_decryption_patches
+
+        apply_decryption_patches()
+        logger.info("Model weights encryption: in-memory decryption patches active")
+
     assert args.max_req_total_len <= args.max_total_token_num
     assert args.zmq_mode in ["tcp://", "ipc:///tmp/"]
     # 确保单机上多实列不冲突

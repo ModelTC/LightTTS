@@ -443,6 +443,11 @@ def start_tts_llm_process(args, tts_llm_port, tts_decode_port, style_name, gpt_p
     graceful_registry(inspect.currentframe().f_code.co_name)
     start_parent_check_thread()
 
+    import os as _os
+    if _os.environ.get("LIGHT_TTS_MODEL_KEY"):
+        from light_tts.utils.model_crypto import apply_decryption_patches
+        apply_decryption_patches()
+
     try:
         router = RouterManager(
             args,

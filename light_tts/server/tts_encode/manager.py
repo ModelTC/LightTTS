@@ -178,6 +178,11 @@ def start_tts1_encode_process(args, tts_llm_ports, tts1_encode_port, index_id, e
     graceful_registry(inspect.currentframe().f_code.co_name)
     start_parent_check_thread()
 
+    import os as _os
+    if _os.environ.get("LIGHT_TTS_MODEL_KEY"):
+        from light_tts.utils.model_crypto import apply_decryption_patches
+        apply_decryption_patches()
+
     try:
         encodeserver = TTS1EncodeManager(args, tts_llm_ports, tts1_encode_port, index_id, encode_parall_lock)
     except Exception:
